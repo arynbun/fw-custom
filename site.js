@@ -1,5 +1,4 @@
 (function () {
-
   function hideNative() {
     document.querySelectorAll('header:not(#aryn-header), footer:not(#aryn-footer)').forEach(function (el) {
       el.style.setProperty('display', 'none', 'important');
@@ -34,7 +33,7 @@
 
   function buildFooter() {
     var existing = document.getElementById('aryn-footer');
-    if (existing) return; // Don't recreate if exists
+    if (existing) existing.remove();
     var el = document.createElement('footer');
     el.className = 'site-footer';
     el.id = 'aryn-footer';
@@ -60,6 +59,8 @@
             '<a href="https://twitch.tv/arynbun" class="social-icon" aria-label="Twitch">',
               '<svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22">',
                 '<path d="M3.75 1.5L2.25 5.25V19.5H6.75V22.5H9.75L12.75 19.5H16.5L21.75 14.25V1.5H3.75Z"/>',
+                '<path fill="var(--aryn-bg-dark,#2d2a3e)" d="M9.75 7.5H11.25V12H9.75z"/>',
+                '<path fill="var(--aryn-bg-dark,#2d2a3e)" d="M13.5 7.5H15V12H13.5z"/>',
               '</svg>',
             '</a>',
             '<a href="https://bsky.app/profile/arynbun.gay" class="social-icon" target="_blank" rel="noopener noreferrer" aria-label="Bluesky">',
@@ -81,85 +82,57 @@
     document.body.appendChild(el);
   }
 
-  // FIXED: Efficient cart sync without overwhelming the browser
   function setupCartSync() {
     var dst = document.getElementById('aryn-cart-count');
     if (!dst) return;
-    
-    // Find the native cart widget
-    var src = document.querySelector('header:not(#aryn-header) [data-cart-widget="quantity"]');
-    if (!src) {
-      // Try alternative selectors if the first one fails
-      src = document.querySelector('[data-cart-widget="quantity"], .cart-quantity, .cart-count');
+
+    function readCount() {
+      var src = document.querySelector('[data-cart-widget="quantity"]');
+      if (!src) return;
+      var v = parseInt(src.textContent.trim(), 10);
+      if (!isNaN(v)) dst.textContent = v;
     }
-    
-    if (!src) {
-      console.debug('Cart widget not found yet, will retry');
-      // Retry after a short delay (once only)
-      setTimeout(function() {
-        var retrySrc = document.querySelector('header:not(#aryn-header) [data-cart-widget="quantity"]');
-        if (retrySrc) {
-          syncCartValue(retrySrc, dst);
-        }
-      }, 1000);
-      return;
-    }
-    
-    syncCartValue(src, dst);
-    
-    // Use debounced observer to avoid overwhelming the browser
-    var debounceTimer;
-    var observer = new MutationObserver(function() {
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(function() {
-        var currentValue = parseInt(src.textContent.trim(), 10);
-        if (!isNaN(currentValue)) {
-          dst.textContent = currentValue;
-        }
-      }, 100); // Only update max 10 times per second
+
+    // Read once on load — no ongoing observation
+    readCount();
+
+    // Intercept fetch: only fires when a real network request happens
+    var _fetch = window.fetch;
+    window.fetch = function () {
+      var url = arguments[0];
+      var req = _fetch.apply(this, arguments);
+      if (typeof url === 'string' && url.indexOf('/cart') !== -1) {
+        req.then(function () { setTimeout(readCount, 80); });
+      }
+      return req;
+    };
+  }
+
+  hideNative();
+  buildHeader();
+
+  var menuBtn = document.getElementById('mobileMenuBtn');
+  if (menuBtn) {
+    menuBtn.addEventListener('click', function () {
+      var nav = document.querySelector('.nav-menu');
+      if (nav) nav.classList.toggle('open');
     });
-    
-    observer.observe(src, { childList: true, characterData: true, subtree: true });
-  }
-  
-  function syncCartValue(src, dst) {
-    var initial = parseInt(src.textContent.trim(), 10);
-    if (!isNaN(initial)) dst.textContent = initial;
   }
 
-  // Initialize on load, not before
-  function init() {
+  var cartLink = document.querySelector('.cart-link');
+  if (cartLink) {
+    cartLink.addEventListener('click', function (e) {
+      var btn = document.querySelector(
+        'header:not(#aryn-header) button[aria-label*="art"], header:not(#aryn-header) [data-cart]'
+      );
+      if (btn) { e.preventDefault(); btn.click(); }
+    });
+  }
+
+  window.addEventListener('load', function () {
     hideNative();
-    buildHeader();
-    
-    var menuBtn = document.getElementById('mobileMenuBtn');
-    if (menuBtn) {
-      menuBtn.addEventListener('click', function () {
-        var nav = document.querySelector('.nav-menu');
-        if (nav) nav.classList.toggle('open');
-      });
-    }
-    
-    var cartLink = document.querySelector('.cart-link');
-    if (cartLink) {
-      cartLink.addEventListener('click', function (e) {
-        var btn = document.querySelector(
-          'header:not(#aryn-header) button[aria-label*="art"], header:not(#aryn-header) [data-cart]'
-        );
-        if (btn) { e.preventDefault(); btn.click(); }
-      });
-    }
-    
     buildFooter();
-    hideNative(); // One final cleanup
+    hideNative();
     setupCartSync();
-  }
-  
-  // Wait for DOM to be ready before running
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
-  }
-
+  });
 })();
