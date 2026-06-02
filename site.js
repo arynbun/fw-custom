@@ -40,14 +40,12 @@
     el.id = 'aryn-footer';
     el.innerHTML = [
       '<div class="footer-container">',
-
         '<div class="footer-section">',
           '<span class="footer-bunny">🐇</span>',
           '<span class="footer-title">ARYNBUN</span>',
           '<p>Love &amp; Art rule the world ✦</p>',
           '<p>A bunnyboi creating art, animations, and streaming joy.</p>',
         '</div>',
-
         '<div class="footer-section">',
           '<h3 class="footer-title">Quick Links</h3>',
           '<ul class="footer-links">',
@@ -56,11 +54,9 @@
             '<li><a href="https://arynbun.gay">Main Website</a></li>',
           '</ul>',
         '</div>',
-
         '<div class="footer-section">',
           '<h3 class="footer-title">Connect</h3>',
           '<div class="social-icons">',
-
             '<a href="https://twitch.tv/arynbun" class="social-icon" aria-label="Twitch">',
               '<svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22">',
                 '<path d="M3.75 1.5L2.25 5.25V19.5H6.75V22.5H9.75L12.75 19.5H16.5L21.75 14.25V1.5H3.75Z"/>',
@@ -68,20 +64,18 @@
                 '<path fill="var(--aryn-bg-dark,#2d2a3e)" d="M13.5 7.5H15V12H13.5z"/>',
               '</svg>',
             '</a>',
-
             '<a href="https://bsky.app/profile/arynbun.gay" class="social-icon" target="_blank" rel="noopener noreferrer" aria-label="Bluesky">',
               '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 530" fill="currentColor" width="22" height="22">',
                 '<path d="M135.72 44.03C202.216 93.951 273.74 195.17 300 249.49c26.262-54.316 97.782-155.54 ',
                 '164.28-205.46C512.26 8.009 590-19.862 590 68.825c0 17.712-10.155 148.79-16.111 170.07-20.703 ',
-                '73.984-96.144 92.854-163.25 81.433 117.3 19.964 147.14 86.092 82.697 152.22-122.39 125.59-175.91-31.511-189.63-71.766-2.514-7.38-3.69-10.832-3.698-7.896-.008-2.936-1.184.516-3.698 ',
-                '7.896-13.714 40.255-67.233 197.36-189.63 71.766-64.444-66.128-34.605-132.26 82.697-152.22-67.108 ',
-                '11.421-142.55-7.449-163.25-81.433C20.155 217.613 10 86.535 10 68.825c0-88.687 77.742-60.816 125.72-24.795z"/>',
+                '73.984-96.144 92.854-163.25 81.433 117.3 19.964 147.14 86.092 82.697 152.22-122.39 125.59',
+                '-175.91-31.511-189.63-71.766-2.514-7.38-3.69-10.832-3.698-7.896-.008-2.936-1.184.516-3.698 ',
+                '7.896-13.714 40.255-67.233 197.36-189.63 71.766-64.444-66.128-34.605-132.26 82.697-152.22',
+                '-67.108 11.421-142.55-7.449-163.25-81.433C20.155 217.613 10 86.535 10 68.825c0-88.687 77.742-60.816 125.72-24.795z"/>',
               '</svg>',
             '</a>',
-
           '</div>',
         '</div>',
-
       '</div>',
       '<div class="footer-bottom">',
         '<p>© 2026 Arynbun. All rights reserved.',
@@ -94,6 +88,7 @@
     document.body.appendChild(el);
   }
 
+  // Poll cart count every 800ms — replaces the aggressive MutationObserver
   function syncCartCount() {
     var src = document.querySelector('header:not(#aryn-header) [data-cart-widget="quantity"]');
     var dst = document.getElementById('aryn-cart-count');
@@ -103,7 +98,7 @@
     }
   }
 
-  // Run immediately
+  // Init
   hideNative();
   buildHeader();
 
@@ -127,11 +122,9 @@
     });
   }
 
-  // Live cart count
+  // Start cart count polling (every 800ms)
   syncCartCount();
-  new MutationObserver(syncCartCount).observe(document.body, {
-    childList: true, subtree: true, characterData: true
-  });
+  setInterval(syncCartCount, 800);
 
   // Footer after full page load
   window.addEventListener('load', function () {
