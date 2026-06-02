@@ -24,6 +24,7 @@
           '<a href="/collections/apparel" class="nav-link">Apparel</a>',
           '<a href="/collections/accessories" class="nav-link">Accessories</a>',
         '</nav>',
+        '<a href="/cart" class="cart-link">🛒 Cart</a>',
         '<button class="mobile-menu-btn" id="mobileMenuBtn">☰</button>',
       '</div>'
     ].join('');
