@@ -1,6 +1,7 @@
 (function () {
-  var isInitialized = false;
-  
+  if (window._arynLoaded) return;
+  window._arynLoaded = true;
+
   function hideNative() {
     document.querySelectorAll('header:not(#aryn-header), footer:not(#aryn-footer)').forEach(function (el) {
       el.style.setProperty('display', 'none', 'important');
@@ -24,7 +25,9 @@
           '<a href="/collections/apparel" class="nav-link">Apparel</a>',
           '<a href="/collections/accessories" class="nav-link">Accessories</a>',
         '</nav>',
-        '<a href="/cart" class="cart-link">🛒 Cart</a>',
+        '<a href="/cart" class="cart-link">',
+          '🛒 Cart',
+        '</a>',
         '<button class="mobile-menu-btn" id="mobileMenuBtn">☰</button>',
       '</div>'
     ].join('');
@@ -59,6 +62,8 @@
             '<a href="https://twitch.tv/arynbun" class="social-icon" aria-label="Twitch">',
               '<svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22">',
                 '<path d="M3.75 1.5L2.25 5.25V19.5H6.75V22.5H9.75L12.75 19.5H16.5L21.75 14.25V1.5H3.75Z"/>',
+                '<path fill="var(--aryn-bg-dark,#2d2a3e)" d="M9.75 7.5H11.25V12H9.75z"/>',
+                '<path fill="var(--aryn-bg-dark,#2d2a3e)" d="M13.5 7.5H15V12H13.5z"/>',
               '</svg>',
             '</a>',
             '<a href="https://bsky.app/profile/arynbun.gay" class="social-icon" target="_blank" rel="noopener noreferrer" aria-label="Bluesky">',
@@ -80,29 +85,30 @@
     document.body.appendChild(el);
   }
 
-  function init() {
-    if (isInitialized) return;
-    isInitialized = true;
-    
-    hideNative();
-    buildHeader();
-    buildFooter();
-    
-    // Mobile menu button
-    var menuBtn = document.getElementById('mobileMenuBtn');
-    if (menuBtn) {
-      menuBtn.addEventListener('click', function () {
-        var nav = document.querySelector('.nav-menu');
-        if (nav) nav.classList.toggle('open');
-      });
-    }
-  }
-  
-  // Wait for DOM to be ready
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
+  hideNative();
+  buildHeader();
+
+  var menuBtn = document.getElementById('mobileMenuBtn');
+  if (menuBtn) {
+    menuBtn.addEventListener('click', function () {
+      var nav = document.querySelector('.nav-menu');
+      if (nav) nav.classList.toggle('open');
+    });
   }
 
+  var cartLink = document.querySelector('.cart-link');
+  if (cartLink) {
+    cartLink.addEventListener('click', function (e) {
+      var btn = document.querySelector(
+        'header:not(#aryn-header) button[aria-label*="art"], header:not(#aryn-header) [data-cart]'
+      );
+      if (btn) { e.preventDefault(); btn.click(); }
+    });
+  }
+
+  window.addEventListener('load', function () {
+    hideNative();
+    buildFooter();
+    hideNative();
+  });
 })();
