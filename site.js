@@ -1,7 +1,4 @@
 (function () {
-  var cartObserver = null;
-  var retryCount = 0;
-  var retryTimeout = null;
   var isInitialized = false;
   
   function hideNative() {
@@ -27,9 +24,6 @@
           '<a href="/collections/apparel" class="nav-link">Apparel</a>',
           '<a href="/collections/accessories" class="nav-link">Accessories</a>',
         '</nav>',
-        '<a href="/cart" class="cart-link">',
-          '🛒 <span class="cart-count" id="aryn-cart-count">0</span> Cart',
-        '</a>',
         '<button class="mobile-menu-btn" id="mobileMenuBtn">☰</button>',
       '</div>'
     ].join('');
@@ -85,79 +79,13 @@
     document.body.appendChild(el);
   }
 
-  // ✅ FIXED: No infinite loops, proper cleanup
-  function setupCartSync() {
-    var dst = document.getElementById('aryn-cart-count');
-    if (!dst) return;
-    
-    var debounceTimer;
-    
-    function updateCartCount() {
-      var src = document.querySelector('[data-cart-widget="quantity"]');
-      if (!src) return;
-      var v = parseInt(src.textContent.trim(), 10);
-      if (!isNaN(v) && dst.textContent != v) {
-        dst.textContent = v;
-      }
-    }
-    
-    // Try to find cart widget once
-    var src = document.querySelector('[data-cart-widget="quantity"]');
-    
-    if (!src) {
-      // ✅ FIX: Only retry 3 times max, with increasing delays
-      function retryFind(attempt) {
-        if (attempt > 3) return;
-        setTimeout(function() {
-          var found = document.querySelector('[data-cart-widget="quantity"]');
-          if (found) {
-            setupObserver(found);
-          } else {
-            retryFind(attempt + 1);
-          }
-        }, attempt * 200);
-      }
-      
-      function setupObserver(widget) {
-        updateCartCount();
-        
-        if (cartObserver) cartObserver.disconnect();
-        cartObserver = new MutationObserver(function() {
-          clearTimeout(debounceTimer);
-          debounceTimer = setTimeout(updateCartCount, 100);
-        });
-        
-        cartObserver.observe(widget, { childList: true, characterData: true, subtree: true });
-      }
-      
-      retryFind(1);
-      return;
-    }
-    
-    // Found immediately
-    updateCartCount();
-    
-    if (cartObserver) cartObserver.disconnect();
-    cartObserver = new MutationObserver(function() {
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(updateCartCount, 100);
-    });
-    
-    cartObserver.observe(src, { childList: true, characterData: true, subtree: true });
-  }
-
-  // ✅ FIXED: Single initialization, no repeated calls
   function init() {
     if (isInitialized) return;
     isInitialized = true;
     
-    // Clear any pending retry timeouts
-    if (retryTimeout) clearTimeout(retryTimeout);
-    
     hideNative();
     buildHeader();
     buildFooter();
-    setupCartSync();
     
     // Mobile menu button
     var menuBtn = document.getElementById('mobileMenuBtn');
@@ -167,34 +95,13 @@
         if (nav) nav.classList.toggle('open');
       });
     }
-    
-    // Cart link click handler
-    var cartLink = document.querySelector('.cart-link');
-    if (cartLink) {
-      cartLink.addEventListener('click', function (e) {
-        var btn = document.querySelector(
-          'header:not(#aryn-header) button[aria-label*="art"], header:not(#aryn-header) [data-cart]'
-        );
-        if (btn) { e.preventDefault(); btn.click(); }
-      });
-    }
   }
   
-  // ✅ FIXED: Use requestIdleCallback to avoid blocking main thread
+  // Wait for DOM to be ready
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function() {
-      if (window.requestIdleCallback) {
-        requestIdleCallback(init, { timeout: 2000 });
-      } else {
-        setTimeout(init, 100);
-      }
-    });
+    document.addEventListener('DOMContentLoaded', init);
   } else {
-    if (window.requestIdleCallback) {
-      requestIdleCallback(init, { timeout: 2000 });
-    } else {
-      setTimeout(init, 100);
-    }
+    init();
   }
 
 })();
