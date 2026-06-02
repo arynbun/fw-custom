@@ -1,4 +1,6 @@
 (function () {
+  var cartObserver = null;
+  
   function hideNative() {
     document.querySelectorAll('header:not(#aryn-header), footer:not(#aryn-footer)').forEach(function (el) {
       el.style.setProperty('display', 'none', 'important');
@@ -59,8 +61,6 @@
             '<a href="https://twitch.tv/arynbun" class="social-icon" aria-label="Twitch">',
               '<svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22">',
                 '<path d="M3.75 1.5L2.25 5.25V19.5H6.75V22.5H9.75L12.75 19.5H16.5L21.75 14.25V1.5H3.75Z"/>',
-                '<path fill="var(--aryn-bg-dark,#2d2a3e)" d="M9.75 7.5H11.25V12H9.75z"/>',
-                '<path fill="var(--aryn-bg-dark,#2d2a3e)" d="M13.5 7.5H15V12H13.5z"/>',
               '</svg>',
             '</a>',
             '<a href="https://bsky.app/profile/arynbun.gay" class="social-icon" target="_blank" rel="noopener noreferrer" aria-label="Bluesky">',
@@ -82,57 +82,80 @@
     document.body.appendChild(el);
   }
 
+  // Proper cart sync with MutationObserver (no fetch override)
   function setupCartSync() {
     var dst = document.getElementById('aryn-cart-count');
     if (!dst) return;
-
-    function readCount() {
+    
+    var debounceTimer;
+    
+    function updateCartCount() {
       var src = document.querySelector('[data-cart-widget="quantity"]');
       if (!src) return;
       var v = parseInt(src.textContent.trim(), 10);
-      if (!isNaN(v)) dst.textContent = v;
-    }
-
-    // Read once on load — no ongoing observation
-    readCount();
-
-    // Intercept fetch: only fires when a real network request happens
-    var _fetch = window.fetch;
-    window.fetch = function () {
-      var url = arguments[0];
-      var req = _fetch.apply(this, arguments);
-      if (typeof url === 'string' && url.indexOf('/cart') !== -1) {
-        req.then(function () { setTimeout(readCount, 80); });
+      if (!isNaN(v) && dst.textContent != v) {
+        dst.textContent = v;
       }
-      return req;
-    };
+    }
+    
+    function findAndObserve() {
+      var src = document.querySelector('[data-cart-widget="quantity"]');
+      
+      if (!src) {
+        // Retry until cart widget is found
+        setTimeout(findAndObserve, 500);
+        return;
+      }
+      
+      // Initial read
+      updateCartCount();
+      
+      // Debounced observer to avoid overwhelming the browser
+      if (cartObserver) cartObserver.disconnect();
+      cartObserver = new MutationObserver(function() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(updateCartCount, 100);
+      });
+      
+      cartObserver.observe(src, { childList: true, characterData: true, subtree: true });
+    }
+    
+    findAndObserve();
   }
 
-  hideNative();
-  buildHeader();
-
-  var menuBtn = document.getElementById('mobileMenuBtn');
-  if (menuBtn) {
-    menuBtn.addEventListener('click', function () {
-      var nav = document.querySelector('.nav-menu');
-      if (nav) nav.classList.toggle('open');
-    });
-  }
-
-  var cartLink = document.querySelector('.cart-link');
-  if (cartLink) {
-    cartLink.addEventListener('click', function (e) {
-      var btn = document.querySelector(
-        'header:not(#aryn-header) button[aria-label*="art"], header:not(#aryn-header) [data-cart]'
-      );
-      if (btn) { e.preventDefault(); btn.click(); }
-    });
-  }
-
-  window.addEventListener('load', function () {
+  // Initialize after DOM is ready
+  function init() {
     hideNative();
+    buildHeader();
     buildFooter();
-    hideNative();
     setupCartSync();
-  });
+    
+    // Mobile menu button
+    var menuBtn = document.getElementById('mobileMenuBtn');
+    if (menuBtn) {
+      menuBtn.addEventListener('click', function () {
+        var nav = document.querySelector('.nav-menu');
+        if (nav) nav.classList.toggle('open');
+      });
+    }
+    
+    // Cart link click handler
+    var cartLink = document.querySelector('.cart-link');
+    if (cartLink) {
+      cartLink.addEventListener('click', function (e) {
+        var btn = document.querySelector(
+          'header:not(#aryn-header) button[aria-label*="art"], header:not(#aryn-header) [data-cart]'
+        );
+        if (btn) { e.preventDefault(); btn.click(); }
+      });
+    }
+  }
+  
+  // Wait for DOM to be ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+
 })();
