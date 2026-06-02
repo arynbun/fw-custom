@@ -1,5 +1,8 @@
 (function () {
   var cartObserver = null;
+  var retryCount = 0;
+  var retryTimeout = null;
+  var isInitialized = false;
   
   function hideNative() {
     document.querySelectorAll('header:not(#aryn-header), footer:not(#aryn-footer)').forEach(function (el) {
@@ -82,7 +85,7 @@
     document.body.appendChild(el);
   }
 
-  // Proper cart sync with MutationObserver (no fetch override)
+  // ✅ FIXED: No infinite loops, proper cleanup
   function setupCartSync() {
     var dst = document.getElementById('aryn-cart-count');
     if (!dst) return;
@@ -98,33 +101,59 @@
       }
     }
     
-    function findAndObserve() {
-      var src = document.querySelector('[data-cart-widget="quantity"]');
-      
-      if (!src) {
-        // Retry until cart widget is found
-        setTimeout(findAndObserve, 500);
-        return;
+    // Try to find cart widget once
+    var src = document.querySelector('[data-cart-widget="quantity"]');
+    
+    if (!src) {
+      // ✅ FIX: Only retry 3 times max, with increasing delays
+      function retryFind(attempt) {
+        if (attempt > 3) return;
+        setTimeout(function() {
+          var found = document.querySelector('[data-cart-widget="quantity"]');
+          if (found) {
+            setupObserver(found);
+          } else {
+            retryFind(attempt + 1);
+          }
+        }, attempt * 200);
       }
       
-      // Initial read
-      updateCartCount();
+      function setupObserver(widget) {
+        updateCartCount();
+        
+        if (cartObserver) cartObserver.disconnect();
+        cartObserver = new MutationObserver(function() {
+          clearTimeout(debounceTimer);
+          debounceTimer = setTimeout(updateCartCount, 100);
+        });
+        
+        cartObserver.observe(widget, { childList: true, characterData: true, subtree: true });
+      }
       
-      // Debounced observer to avoid overwhelming the browser
-      if (cartObserver) cartObserver.disconnect();
-      cartObserver = new MutationObserver(function() {
-        clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(updateCartCount, 100);
-      });
-      
-      cartObserver.observe(src, { childList: true, characterData: true, subtree: true });
+      retryFind(1);
+      return;
     }
     
-    findAndObserve();
+    // Found immediately
+    updateCartCount();
+    
+    if (cartObserver) cartObserver.disconnect();
+    cartObserver = new MutationObserver(function() {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(updateCartCount, 100);
+    });
+    
+    cartObserver.observe(src, { childList: true, characterData: true, subtree: true });
   }
 
-  // Initialize after DOM is ready
+  // ✅ FIXED: Single initialization, no repeated calls
   function init() {
+    if (isInitialized) return;
+    isInitialized = true;
+    
+    // Clear any pending retry timeouts
+    if (retryTimeout) clearTimeout(retryTimeout);
+    
     hideNative();
     buildHeader();
     buildFooter();
@@ -151,11 +180,21 @@
     }
   }
   
-  // Wait for DOM to be ready
+  // ✅ FIXED: Use requestIdleCallback to avoid blocking main thread
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener('DOMContentLoaded', function() {
+      if (window.requestIdleCallback) {
+        requestIdleCallback(init, { timeout: 2000 });
+      } else {
+        setTimeout(init, 100);
+      }
+    });
   } else {
-    init();
+    if (window.requestIdleCallback) {
+      requestIdleCallback(init, { timeout: 2000 });
+    } else {
+      setTimeout(init, 100);
+    }
   }
 
 })();
